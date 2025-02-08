@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.ecs160.Post;
 import javassist.util.proxy.MethodHandler;
 import javassist.util.proxy.ProxyFactory;
 import redis.clients.jedis.Jedis;
@@ -20,6 +21,7 @@ import redis.clients.jedis.Jedis;
 public class Session {
 
     private Jedis jedisSession;
+    private List<Post> posts;
 
     private Session() {
         jedisSession = new Jedis("localhost", 6379);;
@@ -27,14 +29,17 @@ public class Session {
 
 
     public void add(Object obj) {
+        // Adds object to session (doesn't save yet)
     }
 
 
     public void persistAll()  {
+        // Saves all added objects to Redis
     }
 
 
     public Object load(Object object)  {
+        // Loads object from Redis using its ID
         return null;
     }
 
