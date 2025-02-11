@@ -1,6 +1,5 @@
 package com.ecs160;
 
-
 import com.ecs160.persistence.Persistable;
 import com.ecs160.persistence.PersistableField;
 import com.ecs160.persistence.PersistableId;
@@ -12,7 +11,7 @@ import java.util.List;
 @Persistable
 public class Post {
     @PersistableId
-    private String postId;
+    private String postId; // TODO: Convert to Integer
 
     @PersistableField
     private String parentPostId;

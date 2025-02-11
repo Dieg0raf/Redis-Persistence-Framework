@@ -30,21 +30,25 @@ public class MyApp {
         String filePath = getFilePath(args);
         List<Post> allPosts = parseJsonFile(filePath);
         for (Post post: allPosts) {
-            System.out.println("Size of replies: " + post.getRepliesSize());
-            if (post.getRepliesSize() > 0) {
-                List<Post> replyPosts = post.getReplies();
-                System.out.println("Thread Post Id: " + post.getPostId());
-                for (Post replyPost: post.getReplies()) {
-                    System.out.println("-----> ReplyPost id: " + replyPost.getPostId());
-                }
-                System.out.println();
-            } else {
-                System.out.println("Standalone Post Id: " + post.getPostId());
-                System.out.println();
-            }
-//            curSesh.savePost(post);
+//            System.out.println("Size of replies: " + post.getRepliesSize());
+//            if (post.getRepliesSize() > 0) {
+//                List<Post> replyPosts = post.getReplies();
+//                System.out.println("Thread Post Id: " + post.getPostId());
+//                for (Post replyPost: post.getReplies()) {
+//                    System.out.println("-----> ReplyPost id: " + replyPost.getPostId());
+//                }
+//                System.out.println();
+//            } else {
+//                System.out.println("Standalone Post Id: " + post.getPostId());
+//                System.out.println();
+//            }
+            System.out.println("Amount of replies: " + post.getRepliesSize());
+            curSesh.savePost(post);
+
         }
         System.out.println("Amount of thread posts: " + allPosts.size());
+        System.out.println("Before persisting all");
+        curSesh.persistAll();
     }
 
     private String getFilePath(String[] args) {
