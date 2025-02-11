@@ -1,12 +1,16 @@
 package com.ecs160;
 
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Post {
     private final String postId;
     private final String parentPostId;
     private final String createdAt;
     private final String uri;
     private final String postContent;
+    private final List<Post> replies  = new ArrayList<>();
 
     public Post(String postId, String parentPostId, String createdAt, String uri, String postContent) {
         this.postId = postId;
@@ -16,8 +20,16 @@ public class Post {
         this.postContent = postContent;
     }
 
-    public boolean hasContent() {
-        return !this.postContent.isEmpty();
+    public void addReply(Post post) {
+        this.replies.add(post);
+    }
+
+    public List<Post> getReplies() {
+        return this.replies;
+    }
+
+    public int getRepliesSize() {
+        return this.replies.size();
     }
 
     public String getPostId() {
@@ -38,5 +50,9 @@ public class Post {
 
     public String getPostContent() {
         return this.postContent;
+    }
+
+    public boolean hasContent() {
+        return !this.postContent.isEmpty();
     }
 }

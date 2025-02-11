@@ -73,11 +73,11 @@ public class JsonParser {
 
         // Check if post is either Thread or Standalone Post (no replies)
         if(threadObject.has("replies") && !threadObject.getAsJsonArray("replies").isEmpty()) {
-            processThreadPost(postData, "NULL", posts, threadObject.getAsJsonArray("replies"));
+            processThreadPost(postData, posts, threadObject.getAsJsonArray("replies"));
             return;
         }
 
-        processStandalonePost(postData, "NULL", posts); // Create standalone post if no replies
+        processStandalonePost(postData, posts); // Create standalone post if no replies
     }
 
     private static Map<String, String> extractPostData(JsonObject postObject) {
@@ -94,43 +94,45 @@ public class JsonParser {
         return postData;
     }
 
-    private static void processThreadPost(Map<String, String> postData, String parentId, List<Post> posts, JsonArray replies) {
-        ThreadPost threadPost = new ThreadPost(
+    private static void processThreadPost(Map<String, String> postData, List<Post> posts, JsonArray replies) {
+        Post threadPost = new Post(
                 postData.get("postId"),
-                parentId,
+                "NULL",
                 postData.get("createdAt"),
                 postData.get("uri"),
                 postData.get("text")
                 );
 
         // Recursively parse replies
-        parseReplies(replies, threadPost, posts, parentId);
+        parseReplies(replies, threadPost, posts, postData.get("postId"));
         posts.add(threadPost);
     }
 
-    private static void processStandalonePost(Map<String, String> postData, String parentId, List<Post> posts) {
-        Post standalonePost = new StandalonePost(
+    private static void processStandalonePost(Map<String, String> postData, List<Post> posts) {
+        Post standalonePost = new Post(
                 postData.get("postId"),
-                parentId,
+                "NULL",
                 postData.get("createdAt"),
                 postData.get("uri"),
                 postData.get("text")
                 );
 
-        posts.add(standalonePost);
+        posts.add(standalonePost); // add Post into list of posts (not replies)
     }
 
-    private static Post processReplyPost(Map<String, String> postData, String parentId) {
-        return new ReplyPost(
-                postData.get("postId"),
-                parentId,
-                postData.get("createdAt"),
-                postData.get("uri"),
-                postData.get("text")
-        );
+    private static void processReplyPost(Map<String, String> postData, String parentId, List<Post> posts, Post parentThreadPost) {
+        Post replyPost = new Post(
+                    postData.get("postId"),
+                    parentId,
+                    postData.get("createdAt"),
+                    postData.get("uri"),
+                    postData.get("text")
+            );
+
+        parentThreadPost.addReply(replyPost); // add reply to Parent Post list of replies
     }
 
-    private static void parseReplies(JsonArray replies, ThreadPost threadPost, List<Post> posts, String parentId) {
+    private static void parseReplies(JsonArray replies, Post threadPost, List<Post> posts, String parentId) {
         for (JsonElement reply : replies) {
             if (reply.isJsonObject()) {
                 JsonObject replyObj = reply.getAsJsonObject();
@@ -138,7 +140,8 @@ public class JsonParser {
 
                     // creates ReplyPost obj and stores in ThreadPost list of replies of type Post
                     Map<String, String> postData = extractPostData(replyObj);
-                    threadPost.addReply(processReplyPost(postData, parentId));
+                    processReplyPost(postData, parentId, posts, threadPost);
+
                 }
             }
         }

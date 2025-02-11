@@ -1,6 +1,8 @@
 package com.ecs160;
 
 
+import com.ecs160.persistence.Session;
+
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -24,16 +26,23 @@ public class MyApp {
     }
 
     public void run(String[] args) {
+        Session curSesh = new Session();
         String filePath = getFilePath(args);
         List<Post> allPosts = parseJsonFile(filePath);
         for (Post post: allPosts) {
-            if (post instanceof ThreadPost) {
-                List<Post> replyPosts = ((ThreadPost) post).getReplies();
+            System.out.println("Size of replies: " + post.getRepliesSize());
+            if (post.getRepliesSize() > 0) {
+                List<Post> replyPosts = post.getReplies();
                 System.out.println("Thread Post Id: " + post.getPostId());
-                System.out.println("Thread Post reply count: " + replyPosts.size());
+                for (Post replyPost: post.getReplies()) {
+                    System.out.println("-----> ReplyPost id: " + replyPost.getPostId());
+                }
+                System.out.println();
             } else {
                 System.out.println("Standalone Post Id: " + post.getPostId());
+                System.out.println();
             }
+//            curSesh.savePost(post);
         }
         System.out.println("Amount of thread posts: " + allPosts.size());
     }
