@@ -11,10 +11,10 @@ import java.util.List;
 @Persistable
 public class Post {
     @PersistableId
-    private String postId; // TODO: Convert to Integer
+    private Integer postId;
 
     @PersistableField
-    private String parentPostId;
+    private Integer parentPostId;
 
     @PersistableField
     private String createdAt;
@@ -28,7 +28,7 @@ public class Post {
     @PersistableListField(className = "Post")
     private final List<Post> replies  = new ArrayList<>();
 
-    public Post(String postId, String parentPostId, String createdAt, String uri, String postContent) {
+    public Post(Integer postId, Integer parentPostId, String createdAt, String uri, String postContent) {
         this.postId = postId;
         this.parentPostId = parentPostId;
         this.createdAt = createdAt;
@@ -39,11 +39,11 @@ public class Post {
     public Post() {}
 
     // Setter methods
-    public void setPostId(String postId) {
+    public void setPostId(Integer postId) {
         this.postId = postId;
     }
 
-    public void setParentPostId(String parentPostId) {
+    public void setParentPostId(Integer parentPostId) {
         this.parentPostId = parentPostId;
     }
 
@@ -64,11 +64,11 @@ public class Post {
         return this.replies;
     }
 
-    public String getPostId() {
+    public Integer getPostId() {
         return this.postId;
     }
 
-    public String getParentPostId() {
+    public Integer getParentPostId() {
         return this.parentPostId;
     }
 

@@ -13,6 +13,11 @@ import java.util.List;
 import java.util.Map;
 
 public class JsonParser {
+    private static int idCounter = 0;
+
+    private static synchronized int generateUniqueId() {
+        return ++idCounter;
+    }
 
     public List<Post> parseJson(String filePath) {
         List<Post> posts = new ArrayList<>();
@@ -86,7 +91,7 @@ public class JsonParser {
         JsonObject postJsonObj = postObject.getAsJsonObject("post");
         JsonObject recordObj = postJsonObj.getAsJsonObject("record");
 
-        postData.put("postId", postJsonObj.get("cid").getAsString());
+//        postData.put("postId", postJsonObj.get("cid").getAsString());
         postData.put("uri", postJsonObj.get("uri").getAsString());
         postData.put("createdAt", recordObj.get("createdAt").getAsString());
         postData.put("text", recordObj.has("text") ? recordObj.get("text").getAsString() : "");
@@ -96,22 +101,25 @@ public class JsonParser {
 
     private static void processThreadPost(Map<String, String> postData, List<Post> posts, JsonArray replies) {
         Post threadPost = new Post(
-                postData.get("postId"),
-                "NULL",
+//                postData.get("postId"),
+                generateUniqueId(),
+                -1,
                 postData.get("createdAt"),
                 postData.get("uri"),
                 postData.get("text")
                 );
 
         // Recursively parse replies
-        parseReplies(replies, threadPost, posts, postData.get("postId"));
+//        parseReplies(replies, threadPost, posts, postData.get("postId"));
+        parseReplies(replies, threadPost, posts, threadPost.getPostId());
         posts.add(threadPost);
     }
 
     private static void processStandalonePost(Map<String, String> postData, List<Post> posts) {
         Post standalonePost = new Post(
-                postData.get("postId"),
-                "NULL",
+//                postData.get("postId"),
+                generateUniqueId(),
+                -1,
                 postData.get("createdAt"),
                 postData.get("uri"),
                 postData.get("text")
@@ -120,9 +128,10 @@ public class JsonParser {
         posts.add(standalonePost); // add Post into list of posts (not replies)
     }
 
-    private static void processReplyPost(Map<String, String> postData, String parentId, List<Post> posts, Post parentThreadPost) {
+    private static void processReplyPost(Map<String, String> postData, Integer parentId, List<Post> posts, Post parentThreadPost) {
         Post replyPost = new Post(
-                    postData.get("postId"),
+//                    postData.get("postId"),
+                    generateUniqueId(),
                     parentId,
                     postData.get("createdAt"),
                     postData.get("uri"),
@@ -132,7 +141,7 @@ public class JsonParser {
         parentThreadPost.addReply(replyPost); // add reply to Parent Post list of replies
     }
 
-    private static void parseReplies(JsonArray replies, Post threadPost, List<Post> posts, String parentId) {
+    private static void parseReplies(JsonArray replies, Post threadPost, List<Post> posts, Integer parentId) {
         for (JsonElement reply : replies) {
             if (reply.isJsonObject()) {
                 JsonObject replyObj = reply.getAsJsonObject();

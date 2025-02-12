@@ -1,7 +1,5 @@
 package com.ecs160.persistence;
 
-import redis.clients.jedis.Jedis;
-
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.List;
@@ -10,13 +8,13 @@ import java.util.Map;
 
 // Assumption - only support int/long/and string values
 public class Session {
-
-    private final Jedis jedisSession;
-    private final Map<String,Map<String, String>> objs;
+    private final Map<String,Map<String, String>> sessionObjs;
+    private final RedisDB redisDB;
+    private static final String ID_SUFFIX = "Ids";
 
     public Session() {
-        jedisSession = new Jedis("localhost", 6379);;
-        this.objs = new HashMap<>();
+        this.redisDB = new RedisDB();
+        this.sessionObjs = new HashMap<>();
     }
 
     public void add(Object obj) {
@@ -32,29 +30,85 @@ public class Session {
             return;
         }
 
-        // construct Hashmap of class field values
+        // get Hashmap of class field values and add to session
         Map<String, String> fieldMap = processFields(obj);
         if (!fieldMap.isEmpty()) {
-            this.objs.put(key, fieldMap);
+            this.sessionObjs.put(key, fieldMap);
         }
+
     }
 
     public void persistAll()  {
-        // Saves all added objects to Redis
-        for (Map.Entry<String, Map<String, String>> entry: this.objs.entrySet()) {
+        // Saves all added objects to db
+        for (Map.Entry<String, Map<String, String>> entry: this.sessionObjs.entrySet()) {
             String mapKey = entry.getKey();
             Map<String, String> mapValue = entry.getValue();
-            this.jedisSession.hset(mapKey, mapValue);
+            this.redisDB.setObject(mapKey, mapValue);
         }
     }
 
-    public Object load(Object object)  {
-        // Loads object from Redis using its ID
-        return null;
+    public Object load(Object obj)  {
+        // Check if object class has Persistable annotation
+        if (isNotValidObject(obj)) {
+            return null;
+        }
+
+        // get id annotated field in object class (to reconstruct object using it as a key)
+        String key = findObjectKey(obj);
+        if (key.isEmpty()) {
+            System.out.println("Can't save class Object! Doesn't have a declared ID field annotation!");
+            return null;
+        }
+
+        // Load Object from db
+        Map<String, String> objMap = this.redisDB.loadObject(key);
+
+        return objMap != null ? reconstructObject(objMap, obj) : null;
     }
 
+    private Object reconstructObject(Map<String, String> objMap, Object obj) {
+        for (Field field : obj.getClass().getDeclaredFields()) {
+            field.setAccessible(true);
+            // extract value from objMap (consists of values loaded from db for object)
+            if (field.isAnnotationPresent(PersistableId.class)) {
+                continue;
+            }
 
-    private boolean isNotValidObject(Object obj) {
+            String value = "";
+            if (field.isAnnotationPresent(PersistableListField.class)) {
+                value = objMap.get(field.getName() + ID_SUFFIX);
+            } else if (field.isAnnotationPresent(PersistableField.class)) {
+                value = objMap.get(field.getName());
+            }
+            System.out.println("Field Name & Value: " + field.getName() + " - " + value);
+            try {
+                if (value != null) {
+                    if (field.getType() == int.class) {
+                        System.out.println("Int type!");
+                        field.set(obj, Integer.parseInt(value));
+                    } else if (field.getType() == long.class) {
+                        field.set(obj, Long.parseLong(value));
+                        System.out.println("long type!");
+                    } else if (field.getType() == String.class) {
+                        System.out.println("String type!");
+                        field.set(obj, value);
+                    } else if (field.getType() == List.class) {
+                        System.out.println("A list");
+                    }
+                }
+            } catch (IllegalArgumentException | IllegalAccessException  e) {
+                System.out.println("Error: " + e);
+            }
+
+//            System.out.println("Field Type: " + field.getType());
+        }
+
+//        System.out.println("ReplyIds: " + objMap.get("repliesIds"));
+
+        return obj;
+    }
+
+    private static boolean isNotValidObject(Object obj) {
         if (obj == null) {
             System.out.println("Object cannot be null");
             return true;
@@ -62,7 +116,7 @@ public class Session {
         return !isValidClass(obj.getClass());
     }
 
-    private boolean isValidClass(Class<?> clazz) {
+    private static boolean isValidClass(Class<?> clazz) {
         if (!clazz.isAnnotationPresent(Persistable.class)) { // check if class has Persistable annotation
             System.out.println("Class has DOES NOT Persistable annotation! Can't be saved!");
             return false;
@@ -85,7 +139,7 @@ public class Session {
     }
 
     private Map<String, String> processFields(Object obj) {
-        Map<String, String> fieldMap = new HashMap<>(); // key-value pair for field name and value
+        Map<String, String> fieldMap = new HashMap<>(); // key-value pairs for field name and value
         for (Field field : obj.getClass().getDeclaredFields()) {
             field.setAccessible(true);
             try {
@@ -102,15 +156,14 @@ public class Session {
         return fieldMap;
     }
 
-    private void processField(Field field, Object obj, Map<String, String> fieldMap)
-            throws IllegalAccessException, ClassNotFoundException {
+    private void processField(Field field, Object obj, Map<String, String> fieldMap) throws IllegalAccessException, ClassNotFoundException {
         String fieldName = field.getName();
         Object fieldVal = field.get(obj);
         if (field.isAnnotationPresent(PersistableField.class)) {
             fieldMap.put(fieldName, fieldVal.toString());
         } else if (field.isAnnotationPresent(PersistableListField.class) && isList(field)) {
             String listIds = processListField(field, fieldVal);
-            fieldMap.put(fieldName + "Ids", listIds);
+            fieldMap.put(fieldName + ID_SUFFIX, listIds);
         }
     }
 
@@ -120,21 +173,14 @@ public class Session {
         String listIds = "";
         Class<?> clazz = Class.forName(className);
         List<?> list = (List<?>) fieldVal;
-        for (Object item: list) { // iterate through list of objects
-            if (clazz.isInstance(item)) {
-                Object castedItemObj = clazz.cast(item);
-                if (isNotValidObject(castedItemObj)) {
-                    // skip this object if object class does not have Persistable annotation
-                    continue;
-                }
-                Class<?> castedItemClazz = castedItemObj.getClass();
-                for (Field castedItemfield: castedItemClazz.getDeclaredFields()) { // iterate through fields of each object in list
-                    castedItemfield.setAccessible(true);
-                    if (castedItemfield.isAnnotationPresent(PersistableId.class)) {
-                        Object castedFieldVal = castedItemfield.get(castedItemObj);
-                        String castedKey = castedFieldVal.toString(); // get list object ids
-                        listIds = addReplyId(castedKey, listIds);
-                    }
+        if (!list.isEmpty()) {
+            for (Object item: list) { // iterate through list of objects
+                if (clazz.isInstance(item)) {
+                    Object castedItemObj = clazz.cast(item);
+                    Class<?> castedItemClazz = castedItemObj.getClass();
+                    add(castedItemObj); // adds list item into persist later HashMap (later be persisted)
+                    String castedKey = findObjectKey(castedItemObj);
+                    listIds = addReplyId(castedKey, listIds);
                 }
             }
         }
