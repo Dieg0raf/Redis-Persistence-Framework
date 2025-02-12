@@ -1,6 +1,9 @@
 package com.ecs160.persistence;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,6 +69,15 @@ public class Session {
         return objMap != null ? reconstructObject(objMap, obj) : null;
     }
 
+    public int getAmountOfKeys() {
+        return this.redisDB.getAmountOfKeys();
+    }
+
+    public void clearDB() {
+        this.redisDB.clearDB();
+    }
+
+    // TODO: Figure out how to reconstruct Reply Post
     private Object reconstructObject(Map<String, String> objMap, Object obj) {
         for (Field field : obj.getClass().getDeclaredFields()) {
             field.setAccessible(true);
@@ -76,36 +88,75 @@ public class Session {
 
             String value = "";
             if (field.isAnnotationPresent(PersistableListField.class)) {
-                value = objMap.get(field.getName() + ID_SUFFIX);
-            } else if (field.isAnnotationPresent(PersistableField.class)) {
+                try {
+                    Class<?> clazz = Class.forName(getClassName(field));
+                    String listIds = objMap.get(field.getName() + ID_SUFFIX);
+
+                    if (listIds.isEmpty()) {
+                        continue;
+                    }
+
+                    List<Integer> individualIds = parseReplyIds(listIds);
+                    List<Object> newList = new ArrayList<>();
+
+                    for (Integer id: individualIds) {
+                        Object newObj = clazz.getDeclaredConstructor().newInstance();
+                        String keyName = findObjectKeyName(newObj);
+                        invokeSetter(newObj, keyName, id); // sets key field for newly created object
+                        newList.add(load(newObj));
+                    }
+
+                    field.set(obj, newList); // set list field to the new list
+                    continue;
+                }
+                catch (ClassNotFoundException | NoSuchMethodException | InvocationTargetException | InstantiationException |
+                        IllegalAccessException e) {
+                    System.out.println("An error happening inside reconstructObject");
+                }
+            }
+
+            if (field.isAnnotationPresent(PersistableField.class)) {
                 value = objMap.get(field.getName());
             }
-            System.out.println("Field Name & Value: " + field.getName() + " - " + value);
-            try {
-                if (value != null) {
-                    if (field.getType() == int.class) {
-                        System.out.println("Int type!");
+
+            try { // setting value to fields in object class (assuming "Only fields of type Integer and String are persistable.")
+                if (!value.isEmpty()) {
+                    if (field.getType() == Integer.class) {
                         field.set(obj, Integer.parseInt(value));
-                    } else if (field.getType() == long.class) {
-                        field.set(obj, Long.parseLong(value));
-                        System.out.println("long type!");
                     } else if (field.getType() == String.class) {
-                        System.out.println("String type!");
                         field.set(obj, value);
-                    } else if (field.getType() == List.class) {
-                        System.out.println("A list");
                     }
                 }
             } catch (IllegalArgumentException | IllegalAccessException  e) {
                 System.out.println("Error: " + e);
             }
 
-//            System.out.println("Field Type: " + field.getType());
         }
-
-//        System.out.println("ReplyIds: " + objMap.get("repliesIds"));
-
         return obj;
+    }
+
+    private static void invokeSetter(Object obj, String fieldName, Object value) {
+        try {
+            // Convert field name to setter method name ("name" -> "setName")
+            String methodName = "set" + Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1);
+
+            // Find the setter method with appropriate parameter type
+            Method setter = null;
+            for (Method method : obj.getClass().getMethods()) {
+                if (method.getName().equals(methodName) && method.getParameterCount() == 1) {
+                    setter = method;
+                    break;
+                }
+            }
+
+            if (setter != null) {
+                setter.invoke(obj, value); // Invoke setter with the provided value
+            } else {
+                System.out.println("Setter not found for field: " + fieldName);
+            }
+        } catch (Exception e) {
+            System.out.println("Error occurred when invoking setters: " + e);
+        }
     }
 
     private static boolean isNotValidObject(Object obj) {
@@ -122,6 +173,16 @@ public class Session {
             return false;
         }
         return true;
+    }
+
+    private String findObjectKeyName(Object obj) {
+        for (Field field : obj.getClass().getDeclaredFields()) {
+            field.setAccessible(true);
+            if (field.isAnnotationPresent(PersistableId.class)) {
+                return field.getName(); // returns the id field name as a string
+            }
+        }
+        return "";
     }
 
     private String findObjectKey(Object obj) {
@@ -167,33 +228,51 @@ public class Session {
         }
     }
 
-    private String processListField(Field field, Object fieldVal) throws ClassNotFoundException, IllegalAccessException {
+    private String getClassName(Field field) {
         PersistableListField annotation = field.getAnnotation(PersistableListField.class);
-        String className = "com.ecs160." + annotation.className();
+        return "com.ecs160." + annotation.className();
+    }
+
+    private String processListField(Field field, Object fieldVal) throws ClassNotFoundException, IllegalAccessException {
         String listIds = "";
-        Class<?> clazz = Class.forName(className);
+        Class<?> clazz = Class.forName(getClassName(field));
         List<?> list = (List<?>) fieldVal;
         if (!list.isEmpty()) {
             for (Object item: list) { // iterate through list of objects
                 if (clazz.isInstance(item)) {
                     Object castedItemObj = clazz.cast(item);
                     Class<?> castedItemClazz = castedItemObj.getClass();
-                    add(castedItemObj); // adds list item into persist later HashMap (later be persisted)
+                    add(castedItemObj); // adds list item into persist later HashMap
                     String castedKey = findObjectKey(castedItemObj);
-                    listIds = addReplyId(castedKey, listIds);
+                    listIds = addListId(castedKey, listIds);
                 }
             }
         }
         return listIds;
     }
 
-    private static String addReplyId(String newId, String replyIds) {
-        if (replyIds.isEmpty()) {
-            replyIds = newId;
+    private static String addListId(String newId, String listIds) {
+        if (listIds.isEmpty()) {
+            listIds = newId;
         } else {
-            replyIds += "," + newId;
+            listIds += "," + newId;
         }
-        return replyIds;
+        return listIds;
+    }
+
+    private static List<Integer> parseReplyIds(String listIds) {
+        List<Integer> ids = new ArrayList<>();
+        if (listIds != null && !listIds.isEmpty()) {
+            String[] idArray = listIds.split(",");
+            for (String id : idArray) {
+                try {
+                    ids.add(Integer.parseInt(id.trim()));
+                } catch (NumberFormatException e) {
+                    System.out.println("Warning: Invalid integer found in listIds: " + id);
+                }
+            }
+        }
+        return ids;
     }
 
     private static boolean isList(Field field) {
