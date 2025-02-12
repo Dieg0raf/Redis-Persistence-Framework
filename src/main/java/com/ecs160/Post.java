@@ -1,14 +1,34 @@
 package com.ecs160;
 
+import com.ecs160.persistence.Persistable;
+import com.ecs160.persistence.PersistableField;
+import com.ecs160.persistence.PersistableId;
+import com.ecs160.persistence.PersistableListField;
 
+import java.util.ArrayList;
+import java.util.List;
+
+@Persistable
 public class Post {
-    private final String postId;
-    private final String parentPostId;
-    private final String createdAt;
-    private final String uri;
-    private final String postContent;
+    @PersistableId
+    private Integer postId;
 
-    public Post(String postId, String parentPostId, String createdAt, String uri, String postContent) {
+    @PersistableField
+    private Integer parentPostId;
+
+    @PersistableField
+    private String createdAt;
+
+    @PersistableField
+    private String uri;
+
+    @PersistableField
+    private String postContent;
+
+    @PersistableListField(className = "Post")
+    private final List<Post> replies  = new ArrayList<>();
+
+    public Post(Integer postId, Integer parentPostId, String createdAt, String uri, String postContent) {
         this.postId = postId;
         this.parentPostId = parentPostId;
         this.createdAt = createdAt;
@@ -16,15 +36,39 @@ public class Post {
         this.postContent = postContent;
     }
 
-    public boolean hasContent() {
-        return !this.postContent.isEmpty();
+    public Post() {}
+
+    // Setter methods
+    public void setPostId(Integer postId) {
+        this.postId = postId;
     }
 
-    public String getPostId() {
+    public void setParentPostId(Integer parentPostId) {
+        this.parentPostId = parentPostId;
+    }
+
+    public void setCreatedAt(String createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public void setUri(String uri) {
+        this.uri = uri;
+    }
+
+    public void setPostContent(String postContent) {
+        this.postContent = postContent;
+    }
+
+    // Getter methods
+    public List<Post> getReplies() {
+        return this.replies;
+    }
+
+    public Integer getPostId() {
         return this.postId;
     }
 
-    public String getParentPostId() {
+    public Integer getParentPostId() {
         return this.parentPostId;
     }
 
@@ -38,5 +82,18 @@ public class Post {
 
     public String getPostContent() {
         return this.postContent;
+    }
+
+    public int getRepliesSize() {
+        return this.replies.size();
+    }
+
+    // Useful methods
+    public void addReply(Post post) {
+        this.replies.add(post);
+    }
+
+    public boolean hasContent() {
+        return !this.postContent.isEmpty();
     }
 }
