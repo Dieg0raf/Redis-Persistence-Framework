@@ -13,12 +13,6 @@ import java.util.List;
 import java.util.Map;
 
 public class JsonParser {
-    private static int idCounter = 0;
-
-    private static synchronized int generateUniqueId() {
-        return ++idCounter;
-    }
-
     public List<Post> parseJson(String filePath) {
         List<Post> posts = new ArrayList<>();
         try {
@@ -102,7 +96,7 @@ public class JsonParser {
     private static void processThreadPost(Map<String, String> postData, List<Post> posts, JsonArray replies) {
         Post threadPost = new Post(
 //                postData.get("postId"),
-                generateUniqueId(),
+                IdGenerator.generateUniqueId(),
                 -1,
                 postData.get("createdAt"),
                 postData.get("uri"),
@@ -118,7 +112,7 @@ public class JsonParser {
     private static void processStandalonePost(Map<String, String> postData, List<Post> posts) {
         Post standalonePost = new Post(
 //                postData.get("postId"),
-                generateUniqueId(),
+                IdGenerator.generateUniqueId(),
                 -1,
                 postData.get("createdAt"),
                 postData.get("uri"),
@@ -131,7 +125,7 @@ public class JsonParser {
     private static void processReplyPost(Map<String, String> postData, Integer parentId, List<Post> posts, Post parentThreadPost) {
         Post replyPost = new Post(
 //                    postData.get("postId"),
-                    generateUniqueId(),
+                    IdGenerator.generateUniqueId(),
                     parentId,
                     postData.get("createdAt"),
                     postData.get("uri"),

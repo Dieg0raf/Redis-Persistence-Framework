@@ -30,6 +30,15 @@ public class RedisDB {
         return getAllKeys().size();
     }
 
+    public void clearDB() {
+        isRedisAvailable();
+        if (clear()) {
+            System.out.println("Redis database flushed.");
+        } else {
+            System.out.println("No keys found in the Redis database. Skipping flush.");
+        }
+    }
+
     private Set<String> getAllKeys() {
         isRedisAvailable();
         Set<String> keys = new HashSet<>();
@@ -40,15 +49,6 @@ public class RedisDB {
             keys.addAll(scanResult.getResult());
         } while (!cursor.equals("0"));
         return keys;
-    }
-
-    public void clearDB() {
-        isRedisAvailable();
-        if (clear()) {
-            System.out.println("Redis database flushed.");
-        } else {
-            System.out.println("No keys found in the Redis database. Skipping flush.");
-        }
     }
 
     private boolean clear() {
