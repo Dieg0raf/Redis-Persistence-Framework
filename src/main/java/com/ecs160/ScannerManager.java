@@ -1,9 +1,10 @@
 package com.ecs160;
 
 import com.ecs160.persistence.Session;
-import redis.clients.jedis.exceptions.JedisConnectionException;
+// import redis.clients.jedis.exceptions.JedisConnectionException;
 
 import java.util.Scanner;
+import java.util.List;
 
 public class ScannerManager {
     private Scanner scanner = null;
@@ -55,6 +56,29 @@ public class ScannerManager {
         Post p = new Post();
         p.setPostId(id);
         p = (Post) curSession.load(p);
-        this.postPrinter.printQueryContent(p);
+
+        // Print main post content first
+        System.out.println("\nMAIN POST CONTENT:");
+        System.out.println("└─ " + p.getPostContent());
+
+        // Ask user if they want to load replies
+        System.out.print("\nPress Enter to load replies (or type 'q' to skip): ");
+        scanner.nextLine(); // consume the previous newline
+        String input = scanner.nextLine();
+
+        if (!input.equalsIgnoreCase("q")) {
+            // This will trigger lazy loading of replies
+            List<Post> replies = p.getReplies();
+            if (replies.isEmpty()) {
+                System.out.println("\n(No replies yet.)");
+            } else {
+                System.out.println("\nREPLIES:");
+                for (int i = 0; i < replies.size(); i++) {
+                    Post reply = replies.get(i);
+                    String prefix = (i == replies.size() - 1) ? "   └── " : "   ├── ";
+                    System.out.println(prefix + reply.getPostContent());
+                }
+            }
+        }
     }
 }

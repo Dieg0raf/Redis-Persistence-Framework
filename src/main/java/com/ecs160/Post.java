@@ -4,6 +4,7 @@ import com.ecs160.persistence.Persistable;
 import com.ecs160.persistence.PersistableField;
 import com.ecs160.persistence.PersistableId;
 import com.ecs160.persistence.PersistableListField;
+import com.ecs160.persistence.LazyLoad;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +27,8 @@ public class Post {
     private String postContent;
 
     @PersistableListField(className = "Post")
-    private final List<Post> replies  = new ArrayList<>();
+    @LazyLoad
+    private final List<Post> replies = new ArrayList<>();
 
     public Post(Integer postId, Integer parentPostId, String createdAt, String uri, String postContent) {
         this.postId = postId;
@@ -36,7 +38,8 @@ public class Post {
         this.postContent = postContent;
     }
 
-    public Post() {}
+    public Post() {
+    }
 
     // Setter methods
     public void setPostId(Integer postId) {
